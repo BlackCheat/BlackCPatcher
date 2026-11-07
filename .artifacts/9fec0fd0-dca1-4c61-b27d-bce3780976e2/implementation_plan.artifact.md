@@ -1,43 +1,44 @@
-# Implementation Plan: Launcher Detection, File Explorer & V1/V2 Signing
+# Implementation Plan: True Binary AXML Patching & Native Dex/Smali Engine
 
-This plan addresses the implementation of reliable launcher activity detection, an MT-Manager style APK file explorer, and a robust V1+V2 APK Signing engine.
+This plan integrates the exact fixes you provided to resolve the pipeline failures. It replaces the text-fallback hacks with genuine binary-level patching and introduces a real Smali/Baksmali assembly pipeline.
 
 ## User Review Required
 
-> [!IMPORTANT]
-> **APK Signing Dependency:** To achieve 100% reliable V2 (and V3) APK Signature Scheme signing on-device, we will leverage Google's official `com.android.tools.build:apksig` library. I have verified that this library compiles successfully in your environment.
+> [!WARNING]
+> **New Dependencies Added:** We will add `org.smali:smali:2.5.2` and `org.smali:baksmali:2.5.2` to `build.gradle.kts`. These libraries are required to safely disassemble `.dex` files into `.smali` files, modify them, and reassemble them back into `.dex` format on the device.
 
 ## Proposed Changes
 
-### Feature 1: Reliable Launcher Auto-Detection & File Explorer
+### 1. True Binary Manifest Patching
+#### [NEW] [BinaryAxmlPatcher.kt](file:///C:/Users/YASEEN/Desktop/BlackCPatcher/app/src/main/java/com/blackcpatcher/data/apk/BinaryAxmlPatcher.kt)
+- Create the engine that splices string pools and inserts actual binary `CHUNK_START_TAG` and `CHUNK_END_TAG` blocks into the AXML byte array.
+#### [MODIFY] [ManifestPatcher.kt](file:///C:/Users/YASEEN/Desktop/BlackCPatcher/app/src/main/java/com/blackcpatcher/data/apk/ManifestPatcher.kt)
+- Strip out the failing text-conversion logic.
+- Route compiled APKs directly into `BinaryAxmlPatcher.patch()`, outputting a 100% valid binary AXML file.
 
-#### [MODIFY] [BinaryAxmlParser.kt](file:///C:/Users/YASEEN/Desktop/BlackCPatcher/app/src/main/java/com/blackcpatcher/data/apk/BinaryAxmlParser.kt)
-- **Fix:** If the `LAUNCHER` intent is found inside an `<activity-alias>`, the parser currently records the *alias* name instead of the actual backing `.smali` class. I will update the parser to extract the `targetActivity` attribute from aliases, guaranteeing the correct entry point is hooked.
+### 2. Real Dex Disassembly & Reassembly
+#### [MODIFY] [build.gradle.kts](file:///C:/Users/YASEEN/Desktop/BlackCPatcher/app/build.gradle.kts)
+- Add dependencies for `baksmali` and `smali` to enable on-device bytecode manipulation.
+#### [NEW] [DexSmaliEngine.kt](file:///C:/Users/YASEEN/Desktop/BlackCPatcher/app/src/main/java/com/blackcpatcher/data/apk/DexSmaliEngine.kt)
+- Implement `findDexContainingClass` to locate the exact `classesN.dex` holding the target launcher class.
+- Implement `hookLauncherDex` to run `baksmali` -> `SmaliHooker` -> `smali`, saving the modified `.dex` directly into the packaging directory.
 
-#### [NEW] [ApkFileExplorerDialog.kt](file:///C:/Users/YASEEN/Desktop/BlackCPatcher/app/src/main/java/com/blackcpatcher/ui/components/ApkFileExplorerDialog.kt)
-- **UI Component:** A custom Jetpack Compose interactive file explorer mimicking MT Manager.
-- **Functionality:** It will construct a virtual directory tree. The root shows the APK's root directory (e.g., `classes.dex`, `AndroidManifest.xml`). Clicking `classes.dex` virtually "mounts" it and allows the user to browse through the package structures (e.g., `com/` -> `example/` -> `MainActivity.smali`).
-- **Action:** Clicking a `.smali` file will instantly return its relative path and populate the "Manual .smali Path" override text field.
-
-#### [MODIFY] [MainDashboard.kt](file:///C:/Users/YASEEN/Desktop/BlackCPatcher/app/src/main/java/com/blackcpatcher/ui/components/MainDashboard.kt)
-- **Integration:** Add a "Browse Files" OutlinedButton next to the "Detected Launcher" label. Clicking it will trigger the `ApkFileExplorerDialog` using the data from `targetReport`.
-
-### Feature 2: Robust V1+V2 APK Signature Handling
-
-#### [MODIFY] [ApkSignerManager.kt](file:///C:/Users/YASEEN/Desktop/BlackCPatcher/app/src/main/java/com/blackcpatcher/data/apk/ApkSignerManager.kt)
-- **Fix:** Remove the incomplete manual `ZipOutputStream` V1 signer.
-- **Implementation:** Utilize `com.android.apksig.ApkSigner` to perform a comprehensive signing process.
-- **Output:** The final APK will receive valid V1, V2, and V3 signature blocks using the `AndroidKeyStore` debug key. This prevents Android 11+ `INSTALL_PARSE_FAILED_NO_CERTIFICATES` errors and shows as fully signed in MT Manager.
-
-#### [MODIFY] [ApkSignerUtil.kt](file:///C:/Users/YASEEN/Desktop/BlackCPatcher/app/src/main/java/com/blackcpatcher/data/apk/ApkSignerUtil.kt)
-- Refactor to pass the raw APK directly to `ApkSignerManager.kt` using `apksig`'s alignment and signing features.
+### 3. Pipeline & Hook Alignment
+#### [MODIFY] [SmaliHooker.kt](file:///C:/Users/YASEEN/Desktop/BlackCPatcher/app/src/main/java/com/blackcpatcher/data/apk/SmaliHooker.kt)
+- Remove the unsafe `.locals +1` logic (since `p0` is already available in the `onCreate` local scope).
+- Refine the `invoke-super` matching regex to accurately find `->onCreate(`.
+#### [MODIFY] [ApkInjectorEngine.kt](file:///C:/Users/YASEEN/Desktop/BlackCPatcher/app/src/main/java/com/blackcpatcher/data/apk/ApkInjectorEngine.kt)
+- Reorder Step 3 and 4.
+- Read the original manifest *before* patching to accurately extract the Launcher Activity.
+- Route Step 4 to use the newly created `DexSmaliEngine` instead of erroneously searching for non-existent `.smali` files in the raw zip extraction.
 
 ## Verification Plan
 
 ### Automated Tests
-- Run `gradle_build("app:assembleDebug")`
-- Verify successful compilation with `apksig`.
+- Run `gradle_build("app:assembleDebug")` to ensure `smali`/`baksmali` libraries sync properly.
+- Run `gradle_build("app:testDebugUnitTest")` to ensure existing parsers still function.
 
 ### Manual Verification
-- **File Explorer:** Select a target APK, click "Browse Files", navigate into `classes.dex`, and select a `.smali` file. Ensure the text box populates correctly.
-- **Signing:** Build and sign an APK. Verify installation on the emulator/device works perfectly without verification errors.
+- Execute a full patch run.
+- Verify the terminal logs: `Disassembling classes.dex with baksmali…` -> `SUCCESS: Injected initialization hook` -> `Reassembling smali back into classes.dex`.
+- Ensure the resulting APK installs natively (eliminating the `INSTALL_PARSE_FAILED_NOT_APK` error).

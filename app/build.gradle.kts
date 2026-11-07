@@ -14,6 +14,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        multiDexEnabled = true
     }
 
     buildFeatures { compose = true }
@@ -35,6 +36,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("com.android.tools.build:apksig:8.2.0")
+    implementation("org.smali:smali:2.5.2")
+    implementation("org.smali:baksmali:2.5.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 

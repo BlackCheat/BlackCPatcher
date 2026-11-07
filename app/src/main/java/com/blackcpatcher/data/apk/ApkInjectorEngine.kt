@@ -91,33 +91,46 @@ object ApkInjectorEngine {
             onProgress(50, "Renumbering and merging sequential multi-dex streams…")
             DexManager.renumberAndMergeDex(extractedSourceDir, extractedTargetDir) { log(it) }
 
-            // Step 3: Manifest Auto-Parsing & Injection
-            onProgress(65, "Parsing AndroidManifest.xml & injecting permission/service tags…")
-            ManifestPatcher.patchManifest(
+            // Step 3: Original manifest parser to detect launcher
+            val targetManifestFile = File(extractedTargetDir, "AndroidManifest.xml")
+            val originalManifestBytes = targetManifestFile.readBytes()
+            val manifestReport = try {
+                BinaryAxmlParser.parse(originalManifestBytes.inputStream())
+            } catch (_: Exception) { null }
+            val launcherActivity = manifestReport?.launcherActivity
+            log("Detected Launcher: ${launcherActivity ?: "Unknown"}")
+
+            // Step 4: Manifest (ab binary-safe)
+            onProgress(65, "Patching AndroidManifest.xml (binary)…")
+            val manifestPatched = ManifestPatcher.patchManifest(
                 extractedTargetDir = extractedTargetDir,
                 permissionTag = config.permissionTag,
                 serviceTag = config.serviceTag,
                 log = { log(it) }
             )
-
-            // Step 4: Activity Lifecycle Method Hooking Engine
-            onProgress(80, "Injecting initialization hook into launcher activity lifecycle…")
-            val targetManifestReport = try {
-                val manifestBytes = File(extractedTargetDir, "AndroidManifest.xml").readBytes()
-                BinaryAxmlParser.parse(manifestBytes.inputStream())
-            } catch (_: Exception) {
-                null
+            if (!manifestPatched) {
+                error("Manifest patching failed. Packaging stopped to prevent an invalid APK.")
             }
 
-            SmaliHooker.injectHook(
-                extractedTargetDir = extractedTargetDir,
-                detectedLauncherActivity = targetManifestReport?.launcherActivity ?: targetManifestReport?.activities?.firstOrNull()?.name,
-                manualSmaliPathOverride = config.manualSmaliPathOverride,
-                hookLine = config.hookLine,
-                log = { log(it) }
-            )
+            // Step 5: smali hook via real decompile/edit/assemble
+            onProgress(80, "Hooking launcher onCreate…")
+            val targetClass = config.manualSmaliPathOverride.ifBlank { launcherActivity ?: "" }
+            if (targetClass.isNotBlank()) {
+                val dexFile = DexSmaliEngine.findDexContainingClass(extractedTargetDir, targetClass)
+                if (dexFile != null) {
+                    val hookApplied = DexSmaliEngine.hookLauncherDex(dexFile, targetClass, config.hookLine, workDir, ::log)
+                    if (!hookApplied) {
+                        error("Lifecycle hook stage failed. Packaging stopped.")
+                    }
+                } else {
+                    error("ERROR: $targetClass kisi bhi dex me nahi mila")
+                }
+            } else {
+                log("WARNING: Launcher unknown, manual .smali path required")
+                error("Cannot hook unknown launcher.")
+            }
 
-            // Step 5: Re-packaging & Cryptographic Signing Engine
+            // Step 6: Re-packaging & Cryptographic Signing Engine
             onProgress(90, "Packaging and signing final APK output archive…")
             val finalSignedApk = ApkSignerUtil.archiveAndSign(
                 context = context,

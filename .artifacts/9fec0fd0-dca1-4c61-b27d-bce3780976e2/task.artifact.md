@@ -1,9 +1,10 @@
 # Task Tracker
 
-- [ ] Update `BinaryAxmlParser.kt` to resolve `targetActivity` in `<activity-alias>`
-- [ ] Create `ApkFileExplorerDialog.kt` composable
-- [ ] Update `MainDashboard.kt` to integrate the "Browse Files" button
-- [ ] Rewrite `ApkSignerManager.kt` to use `com.android.apksig.ApkSigner` for V1+V2+V3
-- [ ] Refactor `ApkSignerUtil.kt` to adapt to the new `ApkSigner` flow
-- [ ] Verify build compiles correctly with no errors
-- [ ] Create Walkthrough artifact
+- [ ] Add `smali` and `baksmali` dependencies to `build.gradle.kts`
+- [ ] Create `BinaryAxmlPatcher.kt`
+- [ ] Rewrite `ManifestPatcher.kt` to use the binary patcher
+- [ ] Create `DexSmaliEngine.kt`
+- [ ] Update `SmaliHooker.kt` to simplify hooks and remove `.locals` shifting
+- [ ] Update `ApkInjectorEngine.kt` to reorder manifest reading and call `DexSmaliEngine`
+- [ ] Run Gradle tests and assembleDebug
+- [ ] Create walkthrough artifact

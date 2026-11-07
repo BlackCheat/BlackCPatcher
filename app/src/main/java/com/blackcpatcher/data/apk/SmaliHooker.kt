@@ -63,19 +63,8 @@ object SmaliHooker {
             }
 
             if (inOnCreate) {
-                // Safely adjust the .locals count by +1 to accommodate register usage
-                if (line.startsWith(".locals ")) {
-                    try {
-                        val currentLocals = line.substringAfter(".locals ").trim().toInt()
-                        lines[i] = "    .locals ${currentLocals + 1}"
-                        log("Safely adjusted .locals count from $currentLocals to ${currentLocals + 1}")
-                    } catch (_: Exception) {
-                        log("WARNING: Failed to parse .locals count.")
-                    }
-                }
-
                 // Locate the super call instruction
-                if ((line.startsWith("invoke-super") || line.contains("super.onCreate") || line.contains("->onCreate(")) && line.contains("Landroid/os/Bundle;)V")) {
+                if (line.startsWith("invoke-super") && line.contains("->onCreate(")) {
                     log("Located super.onCreate call at line ${i + 1}")
                     // Insert the exact hook line immediately on the next line
                     lines.add(i + 1, "    $cleanHookLine")
