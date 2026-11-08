@@ -60,7 +60,8 @@ object ManifestPatcher {
             log("SUCCESS: Binary manifest patched (${patched.size} bytes, still binary AXML)")
             true
         } catch (e: Exception) {
-            log("ERROR: Binary manifest patch failed: ${e.message}")
+            log("ERROR: ${e.javaClass.simpleName}: ${e.message ?: "no message"}")
+            e.printStackTrace()
             false
         }
     }

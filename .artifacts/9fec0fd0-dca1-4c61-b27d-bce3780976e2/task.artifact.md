@@ -1,10 +1,8 @@
 # Task Tracker
 
-- [ ] Add `smali` and `baksmali` dependencies to `build.gradle.kts`
-- [ ] Create `BinaryAxmlPatcher.kt`
-- [ ] Rewrite `ManifestPatcher.kt` to use the binary patcher
-- [ ] Create `DexSmaliEngine.kt`
-- [ ] Update `SmaliHooker.kt` to simplify hooks and remove `.locals` shifting
-- [ ] Update `ApkInjectorEngine.kt` to reorder manifest reading and call `DexSmaliEngine`
+- [ ] Complete replacement of `BinaryAxmlPatcher.kt` to V5 (with 4-byte padding & `validateStrict`)
+- [ ] Upgrade exception handling in `ManifestPatcher.kt` to print exact exception class names
+- [ ] Create `ManifestInfoDetector.kt` for native ZIP manifest scanning
+- [ ] Create `AxmlToText.kt` for visual AXML decompilation mirroring MT Manager
 - [ ] Run Gradle tests and assembleDebug
 - [ ] Create walkthrough artifact
